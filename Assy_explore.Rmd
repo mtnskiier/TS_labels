@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Overview
 
-Industrial Automation data from a AM Rod Mill data has been downloaded from a Cassandra database from three collection points. Each collection point provides a unique set of data and are delineated via an assetID listed in the filename. Asset 31 is the SmartOil device collecting 16 parameters. The asset 32 is a general purpose data collection card connected to a variety of sensors. Asset 33 is a Gastops a ferrous and non-ferrous particle counter. The telemetry stream for these three assets are combined to create a model for classifying the operation of the rod mill.
+Industrial Automation data from a Rod Mill data has been downloaded from a Cassandra database from three collection points. Each collection point provides a unique set of data and are delineated via an assetID listed in the filename. Asset 31 is the SmartOil device collecting 16 parameters. The asset 32 is a general purpose data collection card connected to a variety of sensors. Asset 33 is a Gastops a ferrous and non-ferrous particle counter. The telemetry stream for these three assets are combined to create a model for classifying the operation of the rod mill.
 
 ### Extract
 
@@ -40,16 +40,16 @@ Queries used in extraction:
 
 ```{r assydata, cache=TRUE}
 
-d31 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill31.csv', sep = "|", header = TRUE, strip.white = TRUE,
+d31 <- read.csv('~/RodMill/RodMill31.csv', sep = "|", header = TRUE, strip.white = TRUE,
                 colClasses = c("character", rep("numeric" , 16)), na.strings = "null")
 d31$logdate <- as.POSIXct(strptime(d31$logdate, "%Y-%m-%d %H:%M:%S"))
 
-d32 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill32.csv', sep = "|", header = TRUE, strip.white = TRUE,
+d32 <- read.csv('~/RodMill/RodMill32.csv', sep = "|", header = TRUE, strip.white = TRUE,
                 colClasses = c("character", rep("numeric" , 6)), na.strings = "null")
 d32$logdate <- as.POSIXct(strptime(d32$logdate, "%Y-%m-%d %H:%M:%S"))
 
 # Gastops all nulls 10/11/2018
-#d33 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill33.csv', sep = "|", header = TRUE, strip.white = TRUE,
+#d33 <- read.csv('~/RodMill/RodMill33.csv', sep = "|", header = TRUE, strip.white = TRUE,
 #                colClasses = c("character", rep("numeric" , 16)), na.strings = "null")
 #d33$logdate <- as.POSIXct(strptime(d33$logdate, "%Y-%m-%d %H:%M:%S"))
 
@@ -94,7 +94,7 @@ After coercing sample time for skewed intervals AND trimming pre-2018-05-01 data
 ```{r svresults}
 # Save the cleaned data in a csv for labeling
 
-write.csv(df, "/home/jbaker/LL_R/RodMill/RodMill_joined31_32.csv", row.names = FALSE)
+write.csv(df, "~/RodMill/RodMill_joined31_32.csv", row.names = FALSE)
 
 ```
 
