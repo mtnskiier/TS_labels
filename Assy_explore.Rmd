@@ -1,0 +1,102 @@
+---
+title: "Clean RodMill Sample Data"
+author: "JBaker"
+date: "October 9, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+Industrial Automation data from a AM Rod Mill data has been downloaded from a Cassandra database from three collection points. Each collection point provides a unique set of data and are delineated via an assetID listed in the filename. Asset 31 is the SmartOil device collecting 16 parameters. The asset 32 is a general purpose data collection card connected to a variety of sensors. Asset 33 is a Gastops a ferrous and non-ferrous particle counter. The telemetry stream for these three assets are combined to create a model for classifying the operation of the rod mill.
+
+### Extract
+
+Data from 5 months of operation is injested and special events are identified. A model is trained and the test set is applied. Additional data collected since the data set was down loaded will be used as a validation set. 
+
+Queries used in extraction:
+
+*CAPTURE ‘/tmp/RodMill31.csv’*
+
+*SELECT logdate,p1051,p1052,p1053,p1054,p1294,p1295,p1296,p1297,p1298,p1299,p1300,p1301,p1302,p1303,p1335,p1457 FROM ml1testingstephen.monitoringrecords_ver2 WHERE assetid = 31 AND year_month  IN (201804, 201805, 201806, 201807, 201808, 201809)*
+
+*CAPTURE OFF*
+
+*CAPTURE ‘/tmp/RodMill32.csv’*
+
+*SELECT logdate,p1951,p1952,p1953,p1954,p1955,p1956 FROM ml1testingstephen.monitoringrecords_ver2 WHERE assetid = 32 AND  year_month  IN (201804, 201805, 201806, 201807, 201808, 201809);*
+
+*CAPTURE OFF*
+
+*CAPTURE ‘/tmp/RodMill33.csv’*
+
+*SELECT logdate,p1951,p1952,p1953,p1954,p1955,p1956 FROM ml1testingstephen.monitoringrecords_ver2 WHERE assetid = 33 AND  year_month  IN (201804, 201805, 201806, 201807, 201808, 201809);*
+
+*CAPTURE OFF*
+
+```{r assydata, cache=TRUE}
+
+d31 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill31.csv', sep = "|", header = TRUE, strip.white = TRUE,
+                colClasses = c("character", rep("numeric" , 16)), na.strings = "null")
+d31$logdate <- as.POSIXct(strptime(d31$logdate, "%Y-%m-%d %H:%M:%S"))
+
+d32 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill32.csv', sep = "|", header = TRUE, strip.white = TRUE,
+                colClasses = c("character", rep("numeric" , 6)), na.strings = "null")
+d32$logdate <- as.POSIXct(strptime(d32$logdate, "%Y-%m-%d %H:%M:%S"))
+
+# Gastops all nulls 10/11/2018
+#d33 <- read.csv('/home/jbaker/LL_R/RodMill/RodMill33.csv', sep = "|", header = TRUE, strip.white = TRUE,
+#                colClasses = c("character", rep("numeric" , 16)), na.strings = "null")
+#d33$logdate <- as.POSIXct(strptime(d33$logdate, "%Y-%m-%d %H:%M:%S"))
+
+joineddf <- merge(d31, d32, by="logdate", all=TRUE) 
+
+# trash the partial and noisy data before 2018-05-01
+df <- filter(joineddf , joineddf$logdate > "2018-05-01 00:00:00")
+
+```
+
+Currently, there are `r nrow(d31)` readings of the Rod Mill 31 asset and `r nrow(d32)` readings for the 32 asset available for creating a model. 
+After joining the data together on the logdate, we find there are `r nrow(df)` rows. Since this number is far greater than the two joined telemetry streams - it indicates that the times are skewed. A differenece of a second will skew the times. 
+
+Let's coerce the skewed time readings into a single reading *IFF* the difference in time is under 10 seconds (typical sample rate of the data is 30 seconds).
+
+```{r coerce_time}
+
+# Find the rows w skew < margin
+
+margin <- 10
+nsamp <- nrow(df)
+skewedrows <- which(abs(as.integer(df$logdate[1:nsamp-1]) - as.integer(df$logdate[2:nsamp]))    < margin )
+
+
+# Only handling the 2 adjacent row case NEED TO AUGMENT for N DATA STREAMS
+# Becasue mutex, make NA<-0, add vectors
+
+addrows <- function(x, y) {
+  x[is.na(x)] <- 0
+  y[is.na(y)] <- 0
+  return(x + y)
+}
+
+NC <- ncol(df)
+df[skewedrows + 1, 2:NC] <- addrows(df[skewedrows, 2:NC ], df[skewedrows + 1, 2:NC ])
+df <- df[-skewedrows, ]
+head(df)
+```
+
+After coercing sample time for skewed intervals AND trimming pre-2018-05-01 data, there are `r nrow(df)` samples.
+
+```{r svresults}
+# Save the cleaned data in a csv for labeling
+
+write.csv(df, "/home/jbaker/LL_R/RodMill/RodMill_joined31_32.csv", row.names = FALSE)
+
+```
+
+
+
